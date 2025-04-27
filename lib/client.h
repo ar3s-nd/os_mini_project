@@ -17,6 +17,7 @@
 #include <netinet/in.h>
 
 #define MAX_SIZE 100
+#define LOG(format, ...) printf(format, ##__VA_ARGS__)
 
 // Error Codes
 #define SUCCESS 0
@@ -27,47 +28,47 @@
 #define USER_ALREADY_EXISTS 5
 #define INVALID_CREDENTIALS 6
 #define STUDENT_ALREADY_ADDED 7
-#define OVERFLOW 8
+#define INVALID_COMMAND 8
 
 // Status Codes
-#define ISACTIVE 0
-#define ISBLOCKED 1
+#define ISBLOCKED 20
+#define ISACTIVE 21
 
 // User Types
-#define NO_USER -1
-#define ADMIN 0
-#define FACULTY 1
-#define STUDENT 2
-#define COURSE 3
+#define NO_USER 29
+#define ADMIN 30
+#define FACULTY 31
+#define STUDENT 32
+#define COURSE 33
 
 // File Names
-#define STUDENT_FILE "student.txt"
-#define FACULTY_FILE "faculty.txt"
-#define COURSE_FILE "course.txt"
-#define ADMIN_FILE "admin.txt"
+#define STUDENT_FILE "db/student.txt"
+#define FACULTY_FILE "db/faculty.txt"
+#define COURSE_FILE "db/course.txt"
+#define ADMIN_FILE "db/admin.txt"
+#define LOG_FILE "db/log.txt"
 
 // IP and Port
 #define IP "127.0.0.0"
 #define PORT 8080
 
 // Command Codes
-#define LOGIN 1
-#define LOGOUT 2
-#define ADD_FACULTY 3
-#define ADD_STUDENT 4
-#define ADD_COURSE 5
-#define VIEW_ADMIN 6
-#define VIEW_FACULTY 7
-#define VIEW_STUDENT 8
-#define VIEW_COURSE 9
-#define REMOVE_ADMIN 10
-#define REMOVE_FACULTY 11
-#define REMOVE_STUDENT 12
-#define REMOVE_COURSE 13
-#define ENROLL_COURSE 14
-#define DROP_COURSE 15
-#define VIEW_ENROLLED_COURSES 16
-#define VIEW_ENROLLED_STUDENTS 17
+#define LOGIN 101
+#define LOGOUT 102
+#define ADD_FACULTY 103
+#define ADD_STUDENT 104
+#define ADD_COURSE 105
+#define VIEW_ADMIN 106
+#define VIEW_FACULTY 107
+#define VIEW_STUDENT 108
+#define VIEW_COURSE 109
+#define ACTIVATE_STUDENT 110
+#define BLOCK_STUDENT 111
+#define MODIFY_STUDENT 112
+#define MODIFY_FACULTY 113
+#define MODIFY_COURSE 114
+#define REMOVE_COURSE 115
+#define CHANGE_PASSWORD 116
 
 extern pthread_mutex_t admin_file_mutex;
 extern pthread_mutex_t student_file_mutex;
@@ -91,6 +92,8 @@ struct Faculty
     char password[50];
     char faculty_id[50];
     char department[50];
+    char courses[MAX_SIZE][50];
+    int course_count;
     int isEXISTS;
 };
 
@@ -99,10 +102,9 @@ struct Student
     char name[50];
     char password[50];
     char student_id[50];
-    char course[50];
     int isEXISTS, isActive;
     int course_count;
-    int course_list[MAX_SIZE]; // Changed to pointer for dynamic allocation
+    char course_list[MAX_SIZE][50]; // Changed to pointer for dynamic allocation
 };
 
 struct Course
@@ -112,7 +114,7 @@ struct Course
     char faculty_id[50];
     int student_limit, student_count;
     int isEXISTS;
-    int studentlist[MAX_SIZE]; // Changed to pointer for dynamic allocation
+    char studentlist[MAX_SIZE][50]; // Array of MAX_SIZE where each element is a string of size 50
 };
 
 // Command Structure
@@ -126,9 +128,5 @@ struct Command
     struct Student student;
     struct Course course;
 };
-
-// ADMIN operations
-int add_entity(void *entity, int type);
-void *view_entity(int *count_out, int type);
 
 #endif // DATA_H

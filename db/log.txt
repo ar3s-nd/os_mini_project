@@ -1,0 +1,83 @@
+Thread created successfully: 135477407508160
+Received command: 101
+Thread created successfully: 135477399115456
+Received command: 101
+Exiting...
+Thread created successfully: 125926830503616
+Received command: 101
+New admin added: a
+Admin logged in: a
+Received command: 103
+User role: 30
+Entity added successfully.
+Received command: 102
+User role: 30
+User logged out
+Client disconnected
+Thread created successfully: 125926830503616
+Received command: 101
+Faculty logged in: f
+Received command: 109
+User role: 31
+View course command received
+Entity List:
+No courses found 0
+Received command: 105
+User role: 31
+Entity added successfully.
+Received command: 109
+User role: 31
+View course command received
+Entity List:
+Name: c, Code: c, Exists: 1
+Total active courses: 1
+Course: c
+Received command: 109
+User role: 31
+View course command received
+Entity List:
+Name: c, Code: c, Exists: 1
+Total active courses: 1
+Course: c
+Received command: 114
+User role: 31
+Modify course command received
+Total count: 1
+Received command: 109
+User role: 31
+View course command received
+Entity List:
+Name: cc, Code: c, Exists: 0
+No courses found 1
+Received command: 109
+User role: 31
+View course command received
+Entity List:
+Name: cc, Code: c, Exists: 0
+No courses found 1
+Received command: 109
+User role: 31
+View course command received
+Entity List:
+Name: cc, Code: c, Exists: 0
+No courses found 1
+Received command: 109
+User role: 31
+View course command received
+Entity List:
+Name: cc, Code: c, Exists: 0
+No courses found 1
+Received command: 105
+User role: 31
+Entity added successfully.
+Received command: 109
+User role: 31
+View course command received
+Entity List:
+Name: cc, Code: c, Exists: 0
+Name: cd, Code: cd, Exists: 1
+Total active courses: 2
+Course: cd
+Course: 
+Client disconnected
+Exiting...
