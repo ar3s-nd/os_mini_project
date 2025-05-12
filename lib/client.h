@@ -24,11 +24,15 @@
 #define FAILED 1
 #define NOT_LOGGED_IN 2
 #define ALREADY_LOGGED_IN 3
-#define USER_NOT_FOUND 4
+#define NOT_FOUND 4
 #define USER_ALREADY_EXISTS 5
 #define INVALID_CREDENTIALS 6
 #define STUDENT_ALREADY_ADDED 7
-#define INVALID_COMMAND 8
+#define FACULTY_ALREADY_ADDED 8
+#define COURSE_ALREADY_ADDED 9
+#define INVALID_COMMAND 10
+#define LIMIT_EXCEEDED 11
+#define INVALID_OPERATION 12
 
 // Status Codes
 #define ISBLOCKED 20
@@ -69,6 +73,8 @@
 #define MODIFY_COURSE 114
 #define REMOVE_COURSE 115
 #define CHANGE_PASSWORD 116
+#define ENROLL_COURSE 117
+#define DROP_COURSE 118
 
 extern pthread_mutex_t admin_file_mutex;
 extern pthread_mutex_t student_file_mutex;

@@ -14,6 +14,7 @@ int tryLogin(struct Command *command)
     char filepath[20];
     void *command_data = NULL, *data = NULL;
     int data_size = 0;
+    pthread_mutex_t *mutex = NULL;
 
     // Set command_data and allocate memory based on role
     switch (command->role)
@@ -23,6 +24,7 @@ int tryLogin(struct Command *command)
         command_data = &command->admin;
         data = malloc(sizeof(command->admin));
         data_size = sizeof(command->admin);
+        mutex = &admin_file_mutex;
         if (data == NULL)
         {
             return FAILED;
@@ -33,6 +35,7 @@ int tryLogin(struct Command *command)
         command_data = &command->student;
         data_size = sizeof(command->student);
         data = malloc(sizeof(command->student));
+        mutex = &student_file_mutex;
         if (data == NULL)
         {
             return FAILED;
@@ -43,6 +46,7 @@ int tryLogin(struct Command *command)
         command_data = &command->faculty;
         data_size = sizeof(command->faculty);
         data = malloc(sizeof(command->faculty));
+        mutex = &faculty_file_mutex;
         if (data == NULL)
         {
             return FAILED;
@@ -52,16 +56,16 @@ int tryLogin(struct Command *command)
         return FAILED;
     }
 
-    // print admin data
+    LOG("File path: %s\n", filepath);
+    pthread_mutex_lock(mutex); // Lock before accessing the file
 
-    pthread_mutex_lock(&admin_file_mutex); // Lock before accessing the file
-
+    LOG("Trying to login...\n");
     int fd = open(filepath, O_CREAT | O_RDWR, 0744);
     if (fd == -1)
     {
         perror(filepath);
-        pthread_mutex_unlock(&admin_file_mutex);
-        return -1;
+        pthread_mutex_unlock(mutex);
+        return FAILED;
     }
 
     if (command->role == STUDENT || command->role == FACULTY)
@@ -71,14 +75,15 @@ int tryLogin(struct Command *command)
         if (cnt == 0)
         {
             close(fd);
-            pthread_mutex_unlock(&admin_file_mutex);
-            return USER_NOT_FOUND;
+            pthread_mutex_unlock(mutex);
+            return NOT_FOUND;
         }
     }
 
     // Process login request here
     while (read(fd, data, data_size) > 0)
     {
+        LOG("Data read from file: %s\n", ((struct Admin *)data)->name);
         if (command->role == ADMIN)
         {
             struct Admin *admin_data = (struct Admin *)data;
@@ -95,9 +100,10 @@ int tryLogin(struct Command *command)
                     strcpy(command->admin.password, admin_data->password);
                     close(fd);
                     free(data);
-                    pthread_mutex_unlock(&admin_file_mutex); // Unlock after processing
+                    pthread_mutex_unlock(mutex); // Unlock after processing
                     return SUCCESS;
                 }
+                pthread_mutex_unlock(mutex); // Unlock after processing
                 return INVALID_CREDENTIALS;
             }
         }
@@ -122,9 +128,10 @@ int tryLogin(struct Command *command)
                     }
                     close(fd);
                     free(data);
-                    pthread_mutex_unlock(&admin_file_mutex); // Unlock after processing
+                    pthread_mutex_unlock(mutex); // Unlock after processing
                     return SUCCESS;
                 }
+                pthread_mutex_unlock(mutex); // Unlock after processing
                 return INVALID_CREDENTIALS;
             }
         }
@@ -149,9 +156,10 @@ int tryLogin(struct Command *command)
                     }
                     close(fd);
                     free(data);
-                    pthread_mutex_unlock(&admin_file_mutex); // Unlock after processing
+                    pthread_mutex_unlock(mutex); // Unlock after processing
                     return SUCCESS;
                 }
+                pthread_mutex_unlock(mutex); // Unlock after processing
                 return INVALID_CREDENTIALS;
             }
         }
@@ -160,21 +168,24 @@ int tryLogin(struct Command *command)
     // If no match found, add the new admin
     if (command->role == ADMIN)
     {
-        close(fd);
-        fd = open(filepath, O_RDWR | O_APPEND);
         lseek(fd, 0, SEEK_END);
         write(fd, command_data, sizeof(command->admin));
         close(fd);
         free(data);
         LOG("New admin added: %s\n", command->admin.name);
-        pthread_mutex_unlock(&admin_file_mutex);
+        if (pthread_mutex_unlock(mutex) != 0)
+        {
+            perror("Failed to unlock mutex");
+            return FAILED;
+        }
+        LOG("Success");
         return SUCCESS;
     }
 
+    pthread_mutex_unlock(mutex);
     free(data);
     close(fd);
-    // Unlock after finishing the file access
-    return USER_NOT_FOUND;
+    return NOT_FOUND;
 }
 
 void *handle_client(void *arg)
@@ -201,31 +212,31 @@ void *handle_client(void *arg)
             if (command.cmd_code == LOGIN)
             {
                 int status = tryLogin(&command);
-                write(sockfd, &status, sizeof(status));
+                send(sockfd, &status, sizeof(status), 0);
                 if (status == SUCCESS)
                 {
                     role = command.role;
                     if (role == ADMIN)
                     {
                         LOG("Admin logged in: %s\n", command.admin.name);
-                        write(sockfd, &command.admin, sizeof(command.admin));
+                        send(sockfd, &command.admin, sizeof(command.admin), 0);
                     }
                     else if (role == STUDENT)
                     {
                         LOG("Student logged in: %s\n", command.student.name);
-                        write(sockfd, &command.student, sizeof(command.student));
+                        send(sockfd, &command.student, sizeof(command.student), 0);
                     }
                     else if (role == FACULTY)
                     {
                         LOG("Faculty logged in: %s\n", command.faculty.name);
-                        write(sockfd, &command.faculty, sizeof(command.faculty));
+                        send(sockfd, &command.faculty, sizeof(command.faculty), 0);
                     }
                 }
             }
             else
             {
                 int status = NOT_LOGGED_IN;
-                write(sockfd, &status, sizeof(NOT_LOGGED_IN));
+                send(sockfd, &status, sizeof(NOT_LOGGED_IN), 0);
             }
         }
         else
@@ -236,51 +247,51 @@ void *handle_client(void *arg)
                 if (role == NO_USER)
                 {
                     int status = NOT_LOGGED_IN;
-                    write(sockfd, &status, sizeof(NOT_LOGGED_IN));
+                    send(sockfd, &status, sizeof(NOT_LOGGED_IN), 0);
                 }
                 role = NO_USER;
                 LOG("User logged out\n");
                 int status = SUCCESS;
-                write(sockfd, &status, sizeof(status));
+                send(sockfd, &status, sizeof(status), 0);
                 break;
             }
-            if (role == ADMIN)
+            if (command.role == ADMIN)
             {
                 if (command.cmd_code == ADD_FACULTY)
                 {
                     int status = add_entity(&command.faculty, FACULTY);
-                    write(sockfd, &status, sizeof(status));
+                    send(sockfd, &status, sizeof(status), 0);
                 }
                 else if (command.cmd_code == ADD_STUDENT)
                 {
                     // int status = add_student(&command.student);
                     int status = add_entity(&command.student, STUDENT);
-                    write(sockfd, &status, sizeof(status));
+                    send(sockfd, &status, sizeof(status), 0);
                 }
                 else if (command.cmd_code == VIEW_STUDENT)
                 {
-                    printf("View student command received\n");
+                    LOG("View student command received\n");
 
                     int student_count;
                     struct Student *students = view_entity(&student_count, STUDENT);
 
                     if (students == NULL || student_count == 0)
                     {
-                        printf("No students found %d\n", student_count);
+                        LOG("No students found %d\n", student_count);
                         int status = FAILED;
-                        write(sockfd, &status, sizeof(status));
+                        send(sockfd, &status, sizeof(status), 0);
                     }
                     else
                     {
-                        printf("Total active students: %d\n", student_count);
+                        LOG("Total active students: %d\n", student_count);
                         int status = SUCCESS;
-                        write(sockfd, &status, sizeof(status));
-                        write(sockfd, &student_count, sizeof(student_count));
-                        write(sockfd, students, sizeof(struct Student) * student_count);
+                        send(sockfd, &status, sizeof(status), 0);
+                        send(sockfd, &student_count, sizeof(student_count), 0);
+                        send(sockfd, students, sizeof(struct Student) * student_count, 0);
 
                         for (int i = 0; i < student_count; i++)
                         {
-                            printf("Student: %s\n", students[i].name);
+                            LOG("Student: %s\n", students[i].name);
                         }
 
                         free(students);
@@ -288,28 +299,28 @@ void *handle_client(void *arg)
                 }
                 else if (command.cmd_code == VIEW_FACULTY)
                 {
-                    printf("View faculty command received\n");
+                    LOG("View faculty command received\n");
 
                     int faculty_count;
-                    struct Student *faculties = view_entity(&faculty_count, FACULTY);
+                    struct Faculty *faculties = view_entity(&faculty_count, FACULTY);
 
                     if (faculties == NULL || faculty_count == 0)
                     {
-                        printf("No students found %d\n", faculty_count);
+                        LOG("No faculties found %d\n", faculty_count);
                         int status = FAILED;
-                        write(sockfd, &status, sizeof(status));
+                        send(sockfd, &status, sizeof(status), 0);
                     }
                     else
                     {
-                        printf("Total active students: %d\n", faculty_count);
+                        LOG("Total active faculties: %d\n", faculty_count);
                         int status = SUCCESS;
-                        write(sockfd, &status, sizeof(status));
-                        write(sockfd, &faculty_count, sizeof(faculty_count));
-                        write(sockfd, faculties, sizeof(struct Student) * faculty_count);
+                        send(sockfd, &status, sizeof(status), 0);
+                        send(sockfd, &faculty_count, sizeof(faculty_count), 0);
+                        send(sockfd, faculties, sizeof(struct Faculty) * faculty_count, 0);
 
                         for (int i = 0; i < faculty_count; i++)
                         {
-                            printf("Student: %s\n", faculties[i].name);
+                            LOG("Faculties: %s, count: %d\n", faculties[i].name, faculties[i].course_count);
                         }
 
                         free(faculties);
@@ -319,60 +330,60 @@ void *handle_client(void *arg)
                 {
                     LOG("Change student activeness command received\n");
                     int status = change_student_activeness(&command.student, ISACTIVE);
-                    write(sockfd, &status, sizeof(status));
+                    send(sockfd, &status, sizeof(status), 0);
                 }
                 else if (command.cmd_code == BLOCK_STUDENT)
                 {
                     LOG("Change student activeness command received\n");
                     int status = change_student_activeness(&command.student, ISBLOCKED);
-                    write(sockfd, &status, sizeof(status));
+                    send(sockfd, &status, sizeof(status), 0);
                 }
                 else if (command.cmd_code == MODIFY_STUDENT)
                 {
                     LOG("Modify student command received\n");
                     int status = modify_entity(&command.student, STUDENT);
-                    write(sockfd, &status, sizeof(status));
+                    send(sockfd, &status, sizeof(status), 0);
                 }
                 else if (command.cmd_code == MODIFY_FACULTY)
                 {
                     LOG("Modify faculty command received\n");
                     int status = modify_entity(&command.faculty, FACULTY);
-                    write(sockfd, &status, sizeof(status));
+                    send(sockfd, &status, sizeof(status), 0);
                 }
                 else
                 {
                     LOG("Invalid command for admin\n");
                     int status = INVALID_COMMAND;
-                    write(sockfd, &status, sizeof(status));
+                    send(sockfd, &status, sizeof(status), 0);
                 }
             }
-            else if (role == FACULTY)
+            else if (command.role == FACULTY)
             {
                 if (command.cmd_code == ADD_COURSE)
                 {
                     int status = add_entity(&command.course, COURSE);
-                    write(sockfd, &status, sizeof(status));
+                    send(sockfd, &status, sizeof(status), 0);
                 }
                 else if (command.cmd_code == VIEW_COURSE)
                 {
                     LOG("View course command received\n");
 
                     int course_count;
-                    struct Course *courses = view_entity(&course_count, COURSE);
+                    struct Course *courses = view_courses(command.faculty.faculty_id, &course_count, FACULTY);
 
                     if (courses == NULL || course_count == 0)
                     {
                         LOG("No courses found %d\n", course_count);
                         int status = FAILED;
-                        write(sockfd, &status, sizeof(status));
+                        send(sockfd, &status, sizeof(status), 0);
                     }
                     else
                     {
                         LOG("Total active courses: %d\n", course_count);
                         int status = SUCCESS;
-                        write(sockfd, &status, sizeof(status));
-                        write(sockfd, &course_count, sizeof(course_count));
-                        write(sockfd, courses, sizeof(struct Course) * course_count);
+                        send(sockfd, &status, sizeof(status), 0);
+                        send(sockfd, &course_count, sizeof(course_count), 0);
+                        send(sockfd, courses, sizeof(struct Course) * course_count, 0);
 
                         for (int i = 0; i < course_count; i++)
                         {
@@ -386,26 +397,86 @@ void *handle_client(void *arg)
                 {
                     LOG("Modify course command received\n");
                     int status = modify_entity(&command.course, COURSE);
-                    write(sockfd, &status, sizeof(status));
+                    send(sockfd, &status, sizeof(status), 0);
                 }
                 else if (command.cmd_code == REMOVE_COURSE)
                 {
                     LOG("Remove course command received\n");
-                    int status = remove_course(&command.course);
-                    status &= modify_entity(&command.faculty, FACULTY);
-                    write(sockfd, &status, sizeof(status));
+                    int status = remove_course(command);
+                    send(sockfd, &status, sizeof(status), 0);
                 }
                 else if (command.cmd_code == CHANGE_PASSWORD)
                 {
                     LOG("Change password command received\n");
-                    int status = change_password(&command.faculty, FACULTY);
-                    write(sockfd, &status, sizeof(status));
+                    int status = modify_entity(&command.faculty, FACULTY);
+                    send(sockfd, &status, sizeof(status), 0);
                 }
                 else
                 {
                     LOG("Invalid command for faculty\n");
                     int status = INVALID_COMMAND;
-                    write(sockfd, &status, sizeof(status));
+                    send(sockfd, &status, sizeof(status), 0);
+                }
+            }
+            else if (command.role == STUDENT)
+            {
+                if (command.cmd_code == VIEW_COURSE)
+                {
+                    LOG("View course command received\n");
+
+                    int course_count;
+                    struct Course *courses = view_courses(command.student.student_id, &course_count, STUDENT);
+
+                    if (courses == NULL)
+                    {
+                        LOG("No courses found %d\n", course_count);
+                        int status = FAILED;
+                        send(sockfd, &status, sizeof(status), 0);
+                    }
+                    else if (course_count == 0)
+                    {
+                        int status = NOT_FOUND;
+                        send(sockfd, &status, sizeof(status), 0);
+                    }
+                    else
+                    {
+                        LOG("Total active courses: %d\n", course_count);
+                        int status = SUCCESS;
+                        send(sockfd, &status, sizeof(status), 0);
+                        send(sockfd, &course_count, sizeof(course_count), 0);
+                        send(sockfd, courses, sizeof(struct Course) * course_count, 0);
+
+                        for (int i = 0; i < course_count; i++)
+                        {
+                            LOG("Course: %s\n", courses[i].course_name);
+                        }
+
+                        free(courses);
+                    }
+                }
+                else if (command.cmd_code == ENROLL_COURSE)
+                {
+                    LOG("Enroll course command received.\n");
+                    int status = enroll_course(command);
+                    send(sockfd, &status, sizeof(status), 0);
+                }
+                else if (command.cmd_code == DROP_COURSE)
+                {
+                    LOG("Drop course command received.\n");
+                    int status = drop_course(command);
+                    send(sockfd, &status, sizeof(status), 0);
+                }
+                else if (command.cmd_code = CHANGE_PASSWORD)
+                {
+                    LOG("Change password command received\n");
+                    int status = modify_entity(&command.student, STUDENT);
+                    send(sockfd, &status, sizeof(status), 0);
+                }
+                else
+                {
+                    LOG("Invalid command for student\n");
+                    int status = INVALID_COMMAND;
+                    send(sockfd, &status, sizeof(status), 0);
                 }
             }
         }
@@ -434,43 +505,42 @@ void initialiseFiles()
     if (fd == -1)
     {
         perror("Failed to create admin file");
-        pthread_mutex_unlock(&admin_file_mutex);
         exit(EXIT_FAILURE);
     }
-    LOG("Admin file created successfully\n");
+    LOG("Admin file initialized successfully\n");
     close(fd);
 
     fd = open(STUDENT_FILE, O_CREAT | O_RDWR | O_TRUNC, 0744);
     if (fd == -1)
     {
         perror("Failed to create student file");
-        pthread_mutex_unlock(&student_file_mutex);
         exit(EXIT_FAILURE);
     }
     write(fd, &cnt, sizeof(cnt));
-    LOG("Student file created successfully\n");
+    LOG("Student file initialized successfully\n");
     close(fd);
 
     fd = open(FACULTY_FILE, O_CREAT | O_RDWR | O_TRUNC, 0744);
     if (fd == -1)
     {
         perror("Failed to create faculty file");
-        pthread_mutex_unlock(&faculty_file_mutex);
         exit(EXIT_FAILURE);
     }
     write(fd, &cnt, sizeof(cnt));
-    LOG("Faculty file created successfully\n");
+    LOG("Faculty file initialized successfully\n");
     close(fd);
 
     fd = open(COURSE_FILE, O_CREAT | O_RDWR | O_TRUNC, 0744);
     if (fd == -1)
     {
         perror("Failed to create course file");
-        pthread_mutex_unlock(&course_file_mutex);
         exit(EXIT_FAILURE);
     }
     write(fd, &cnt, sizeof(cnt));
-    LOG("Course file created successfully\n");
+    LOG("Course file initialized successfully\n");
+    close(fd);
+
+    fd = open(LOG_FILE, O_CREAT | O_RDWR | O_TRUNC, 0744);
     close(fd);
 
     LOG("Files initialized successfully\n");
@@ -479,7 +549,6 @@ void initialiseFiles()
 void handleSignals(int sig)
 {
     LOG("Exiting...\n");
-    // system(">log.txt");
     close(sockfd);
     exit(0);
 }
@@ -551,6 +620,11 @@ int main()
         perror("listen");
         exit(EXIT_FAILURE);
     }
+
+    pthread_mutex_init(&student_file_mutex, NULL);
+    pthread_mutex_init(&admin_file_mutex, NULL);
+    pthread_mutex_init(&course_file_mutex, NULL);
+    pthread_mutex_init(&faculty_file_mutex, NULL);
 
     while (1)
     {

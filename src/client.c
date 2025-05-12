@@ -11,8 +11,6 @@ void *user;
 
 int sendToServer(struct Command command)
 {
-    // Send command to server
-    printf("Sending command to server...\n");
     if (send(sockfd, &command, sizeof(command), 0) < 0)
     {
         perror("Send failed");
@@ -87,18 +85,36 @@ void addEntity(int role, int type)
 
         printf("Enter student limit: ");
         scanf("%d", &command.course.student_limit);
-
-        strcpy(((struct Faculty *)user)->courses[((struct Faculty *)user)->course_count], command.course.course_code);
-        ((struct Faculty *)user)->course_count++;
-
-        command.faculty = *((struct Faculty *)user);
+        strcpy(command.course.faculty_id, ((struct Faculty *)user)->faculty_id);
+        printf("Faculty ID: %s\n", ((struct Faculty *)user)->faculty_id);
     }
 
     int response = sendToServer(command);
     if (response == SUCCESS)
+    {
         printf("Entity added successfully.\n");
+        if (type == COURSE)
+        {
+            strcpy(((struct Faculty *)user)->courses[((struct Faculty *)user)->course_count], command.course.course_code);
+            ((struct Faculty *)user)->course_count++;
+            struct Command com;
+            com.faculty = *((struct Faculty *)user);
+            com.cmd_code = MODIFY_FACULTY;
+            com.role = ADMIN;
+            com.whereData = FACULTY;
+            int res = sendToServer(com);
+            if (res == SUCCESS)
+                printf("Faculty modified successfully. %d\n", com.faculty.course_count);
+            else
+                printf("Failed to modify faculty.\n");
+        }
+    }
     else if (response == STUDENT_ALREADY_ADDED)
-        printf("Entity already exists. You should activate it.\n");
+        printf("Student already exists.\n");
+    else if (response == FACULTY_ALREADY_ADDED)
+        printf("Entity already exists.\n");
+    else if (response == COURSE_ALREADY_ADDED)
+        printf("Course already exists.\n");
     else
         printf("Failed to add entity.\n");
 }
@@ -130,14 +146,24 @@ void viewEntityDetails(int role, int type)
         }
 
         void *entities_list;
+        int struct_size = 0;
         if (type == STUDENT)
+        {
             entities_list = malloc(sizeof(struct Student) * entity_count);
+            struct_size = sizeof(struct Student);
+        }
         else if (type == FACULTY)
+        {
             entities_list = malloc(sizeof(struct Faculty) * entity_count);
+            struct_size = sizeof(struct Faculty);
+        }
         else if (type == COURSE)
+        {
             entities_list = malloc(sizeof(struct Course) * entity_count);
+            struct_size = sizeof(struct Course);
+        }
 
-        if (recv(sockfd, entities_list, sizeof(struct Student) * entity_count, 0) < 0)
+        if (recv(sockfd, entities_list, struct_size * entity_count, 0) < 0)
         {
             perror("Receive failed");
             close(sockfd);
@@ -157,6 +183,8 @@ void viewEntityDetails(int role, int type)
                 {
                     printf("%s ", student->course_list[j]);
                 }
+                if (student->course_count > 0)
+                    printf("\n");
             }
             else if (type == FACULTY)
             {
@@ -168,11 +196,24 @@ void viewEntityDetails(int role, int type)
                 {
                     printf("%s ", faculty->courses[j]);
                 }
+                if (faculty->course_count > 0)
+                    printf("\n");
             }
             else if (type == COURSE)
             {
                 struct Course *course = (struct Course *)entities_list + i;
-                printf("Name: %s, Code: %s\n", course->course_name, course->course_code);
+                if (strcmp(course->faculty_id, ((struct Faculty *)user)->faculty_id))
+                    continue;
+
+                printf("Name: %s, Code: %s, Student Count: %d/%d, Faculty: %s\n", course->course_name, course->course_code, course->student_count, course->student_limit, course->faculty_id);
+                if (course->student_count > 0)
+                    printf("Students: ");
+                for (int j = 0; j < course->student_count; j++)
+                {
+                    printf("%s ", course->studentlist[j]);
+                }
+                if (course->student_count > 0)
+                    printf("\n");
             }
         }
         free(entities_list);
@@ -195,7 +236,7 @@ void changeStudentActiveness(int isActive)
 
     int response = sendToServer(command);
     if (response == SUCCESS)
-        isActive ? printf("Student activeness changed successfully to ACTIVE\n") : printf("Student activeness changed successfully to BLOCKED\n");
+        (isActive == ISACTIVE) ? printf("Student activeness changed successfully to ACTIVE\n") : printf("Student activeness changed successfully to BLOCKED\n");
     else
         printf("Failed to change student activeness.\n");
 }
@@ -220,11 +261,7 @@ void modifyEntity(int role, int type)
 
         printf("Enter new student password: ");
         scanf("%s", command.student.password);
-
-        strcpy(((struct Student *)user)->name, command.student.name);
-        strcpy(((struct Student *)user)->password, command.student.password);
-
-        command.student = *((struct Student *)user);
+        command.student.isEXISTS = 1;
     }
     else if (type == FACULTY)
     {
@@ -237,11 +274,6 @@ void modifyEntity(int role, int type)
         printf("Enter new department: ");
         scanf("%s", command.faculty.department);
         command.faculty.isEXISTS = 1;
-
-        strcpy(((struct Faculty *)user)->name, command.faculty.name);
-        strcpy(((struct Faculty *)user)->password, command.faculty.password);
-        strcpy(((struct Faculty *)user)->department, command.faculty.department);
-        command.faculty = *((struct Faculty *)user);
     }
     else if (type == COURSE)
     {
@@ -253,13 +285,27 @@ void modifyEntity(int role, int type)
 
         printf("Enter new student limit: ");
         scanf("%d", &command.course.student_limit);
+        command.course.isEXISTS = 1;
     }
 
     int response = sendToServer(command);
     if (response == SUCCESS)
+    {
         printf("Entity modified successfully.\n");
+        if (type == STUDENT)
+        {
+            strcpy(((struct Student *)user)->name, command.student.name);
+            strcpy(((struct Student *)user)->password, command.student.password);
+        }
+        else if (type == FACULTY)
+        {
+            strcpy(((struct Faculty *)user)->name, command.faculty.name);
+            strcpy(((struct Faculty *)user)->password, command.faculty.password);
+            strcpy(((struct Faculty *)user)->department, command.faculty.department);
+        }
+    }
     else
-        printf("Failed to modify entity.\n");
+        printf("Failed to modify entity. %d\n", response);
 }
 
 void logout()
@@ -293,6 +339,8 @@ void showAdminCommands()
     printf("Enter choice: ");
     int choice;
     scanf("%d", &choice);
+    printf("\n----------------------------------------------\n\n");
+
     switch (choice)
     {
     case 1:
@@ -328,6 +376,81 @@ void showAdminCommands()
     }
 }
 
+void viewCourses(int type)
+{
+    struct Command command;
+    command.cmd_code = VIEW_COURSE;
+    command.role = type;
+    command.whereData = COURSE;
+    command.faculty = *((struct Faculty *)user);
+    command.student = *((struct Student *)user);
+
+    int response = sendToServer(command);
+    if (response == SUCCESS)
+    {
+        int entity_count = 0;
+        if (recv(sockfd, &entity_count, sizeof(entity_count), 0) < 0)
+        {
+            perror("Receive failed");
+            close(sockfd);
+            exit(EXIT_FAILURE);
+        }
+        printf("Number of entities: %d\n", entity_count);
+        if (entity_count == 0)
+        {
+            printf("No entities found.\n");
+            return;
+        }
+
+        void *entities_list;
+        int struct_size = 0;
+
+        entities_list = malloc(sizeof(struct Course) * entity_count);
+        struct_size = sizeof(struct Course);
+
+        if (recv(sockfd, entities_list, struct_size * entity_count, 0) < 0)
+        {
+            perror("Receive failed");
+            close(sockfd);
+            exit(EXIT_FAILURE);
+        }
+
+        printf("Received entity details:\n");
+        for (int i = 0; i < entity_count; i++)
+        {
+            if (type == FACULTY)
+            {
+                struct Course *course = (struct Course *)entities_list + i;
+                printf("Name: %s, Code: %s, Student Count: %d/%d, Faculty: %s\n", course->course_name, course->course_code, course->student_count, course->student_limit, course->faculty_id);
+                if (course->student_count > 0)
+                    printf("Students: ");
+                for (int j = 0; j < course->student_count; j++)
+                {
+                    printf("%s ", course->studentlist[j]);
+                }
+                if (course->student_count > 0)
+                    printf("\n");
+            }
+
+            else if (type == STUDENT)
+            {
+                struct Course *course = (struct Course *)entities_list + i;
+                for (int j = 0; j < course->student_count; j++)
+                {
+                    if (strcmp(course->studentlist[j], ((struct Student *)user)->student_id))
+                        continue;
+                }
+                printf("Name: %s, Code: %s, Faculty: %s\n", course->course_name, course->course_code, course->faculty_id);
+            }
+        }
+        free(entities_list);
+    }
+    else if (response == NOT_FOUND)
+        printf("No courses found.\n");
+    else
+        printf("Failed to retrieve entity details.\n");
+}
+
 void removeCourse()
 {
     struct Command command;
@@ -337,21 +460,37 @@ void removeCourse()
 
     printf("Enter course code: ");
     scanf("%s", command.course.course_code);
+    command.course.isEXISTS = 0;
 
-    for (int i = 0; i < ((struct Faculty *)user)->course_count; i++)
+    command.faculty = *((struct Faculty *)user);
+
+    for (int i = 0; i < command.faculty.course_count; i++)
     {
-        if (strcmp(((struct Faculty *)user)->courses[i], command.course.course_code) == 0)
+        if (strcmp(command.faculty.courses[i], command.course.course_code) == 0)
         {
-            ((struct Faculty *)user)->course_count--;
+            while (i < command.faculty.course_count - 1)
+            {
+                strcpy(command.faculty.courses[i], command.faculty.courses[i + 1]);
+                i++;
+            }
+            command.faculty.course_count--;
             break;
         }
     }
 
-    command.faculty = *((struct Faculty *)user);
-
     int response = sendToServer(command);
     if (response == SUCCESS)
+    {
         printf("Course removed successfully.\n");
+        // copy the contents into user as well
+        for (int i = 0; i < command.faculty.course_count; i++)
+        {
+            strcpy(((struct Faculty *)user)->courses[i], command.faculty.courses[i]);
+        }
+        ((struct Faculty *)user)->course_count--;
+    }
+    else if (response == INVALID_COMMAND)
+        printf("All students must drop the course before it can be removed.\n");
     else
         printf("Failed to remove course.\n");
 }
@@ -369,18 +508,24 @@ void changePassword(int role, int type)
 
     if (type == STUDENT)
     {
-        strcpy(command.student.password, pwd);
         command.student = *((struct Student *)user);
+        strcpy(command.student.password, pwd);
     }
     else if (type == FACULTY)
     {
-        strcpy(command.faculty.password, pwd);
         command.faculty = *((struct Faculty *)user);
+        strcpy(command.faculty.password, pwd);
     }
 
     int response = sendToServer(command);
     if (response == SUCCESS)
+    {
         printf("Password changed successfully.\n");
+        if (type == STUDENT)
+            strcpy(((struct Student *)user)->password, pwd);
+        else if (type == FACULTY)
+            strcpy(((struct Faculty *)user)->password, pwd);
+    }
     else
         printf("Failed to change password.\n");
 }
@@ -398,31 +543,133 @@ void showFacultyCommands()
 
     int choice;
     scanf("%d", &choice);
+    printf("\n----------------------------------------------\n\n");
     switch (choice)
     {
     case 1:
         addEntity(FACULTY, COURSE);
         break;
     case 2:
-        // Remove course logic
+        removeCourse();
         break;
     case 3:
-        viewEntityDetails(FACULTY, COURSE);
+        viewCourses(FACULTY);
         break;
     case 4:
         modifyEntity(FACULTY, COURSE);
         break;
     case 5:
-        // Change password logic
+        changePassword(FACULTY, FACULTY);
+        break;
+    case 6:
+        logout();
         break;
 
     default:
+        printf("Invalid choice. Please try again.\n\n");
         break;
     }
 }
 
+void enrollCourse()
+{
+    struct Command command;
+    command.cmd_code = ENROLL_COURSE;
+    command.role = STUDENT;
+    command.whereData = STUDENT;
+
+    printf("Enter course code: ");
+    scanf("%s", command.course.course_code);
+    command.student = *((struct Student *)user);
+    for (int i = 0; i < command.student.course_count; i++)
+    {
+        if (strcmp(command.course.course_code, command.student.course_list[i]) == 0)
+        {
+            printf("Student already enrolled.\n");
+            return;
+        }
+    }
+    strcpy(command.student.course_list[command.student.course_count], command.course.course_code);
+    command.student.course_count++;
+
+    int response = sendToServer(command);
+    if (response == SUCCESS)
+    {
+        printf("Student enrolled successfully.\n");
+        strcpy(((struct Student *)user)->course_list[((struct Student *)user)->course_count], command.course.course_code);
+        ((struct Student *)user)->course_count++;
+    }
+    else if (response == NOT_FOUND)
+        printf("Course not found.\n");
+    else if (response == LIMIT_EXCEEDED)
+        printf("Student limit reached. Cannot enroll for this course.");
+    else
+        printf("Error occurred.\n");
+}
+
+void dropCourse()
+{
+    struct Command command;
+    command.cmd_code = DROP_COURSE;
+    command.role = STUDENT;
+    command.whereData = STUDENT;
+
+    printf("Enter course code: ");
+    scanf("%s", command.course.course_code);
+    command.student = *((struct Student *)user);
+    int isstudentenrolled = 0;
+    for (int i = 0; i < command.student.course_count; i++)
+    {
+        if (strcmp(command.course.course_code, command.student.course_list[i]) == 0)
+        {
+            printf("TO be DROPPED: %s", command.student.course_list[i]);
+            for (; i < command.student.course_count - 1; i++)
+            {
+                strcpy(command.student.course_list[i], command.student.course_list[i + 1]);
+            }
+            command.student.course_count--;
+            isstudentenrolled = 1;
+            break;
+        }
+    }
+
+    if (!isstudentenrolled)
+    {
+        printf("Student not enrolled.\n");
+        return;
+    }
+
+    int response = sendToServer(command);
+    if (response == SUCCESS)
+    {
+        printf("Student dropped out successfully.\n");
+
+        for (int i = 0; i < command.student.course_count; i++)
+        {
+            printf("%s %d ", ((struct Student *)user)->course_list[i], strcmp(command.course.course_code, ((struct Student *)user)->course_list[i]) == 0);
+            strcpy(((struct Student *)user)->course_list[i], command.student.course_list[i]);
+        }
+        ((struct Student *)user)->course_count--;
+        for (int i = 0; i < ((struct Student *)user)->course_count; i++)
+        {
+            printf("%s %d ", ((struct Student *)user)->course_list[i], strcmp(command.course.course_code, ((struct Student *)user)->course_list[i]) == 0);
+        }
+    }
+    else if (response == NOT_FOUND)
+        printf("Course not found.\n");
+    else
+        printf("Error occurred.\n");
+}
+
 void showStudentCommands()
 {
+    if (((struct Student *)user)->isActive == ISBLOCKED)
+    {
+        printf("You are blocked. Please contact admin.\n");
+        logout();
+        return;
+    }
+
     printf("Student Commands:\n");
     printf("1. View Course\n");
     printf("2. Enroll in Course\n");
@@ -432,12 +679,35 @@ void showStudentCommands()
     printf("Enter choice: ");
     int choice;
     scanf("%d", &choice);
-    printf("%d", choice);
+    printf("\n----------------------------------------------\n\n");
+
+    switch (choice)
+    {
+    case 1:
+        viewCourses(STUDENT);
+        break;
+    case 2:
+        enrollCourse();
+        break;
+    case 3:
+        dropCourse();
+        break;
+    case 4:
+        changePassword(STUDENT, STUDENT);
+        break;
+    case 5:
+        logout();
+        break;
+    default:
+        printf("Invalid choice. Please try again.\n\n");
+        break;
+    }
 }
 
 void handleSignals(int sig)
 {
     printf("\nExiting...\n");
+    free(user);
     close(sockfd);
     exit(0);
 }
@@ -517,31 +787,30 @@ int main()
         {
         case SUCCESS:
             isLoggedInAs = role;
-            int strcut_size = 0;
+            int struct_size = 0;
             if (role == ADMIN)
             {
                 user = malloc(sizeof(struct Admin));
-                strcut_size = sizeof(struct Admin);
+                struct_size = sizeof(struct Admin);
             }
             else if (role == FACULTY)
             {
                 user = malloc(sizeof(struct Faculty));
-                strcut_size = sizeof(struct Faculty);
+                struct_size = sizeof(struct Faculty);
             }
             else
             {
                 user = malloc(sizeof(struct Student));
-                strcut_size = sizeof(struct Student);
+                struct_size = sizeof(struct Student);
             }
 
-            if (recv(sockfd, user, strcut_size, 0) < 0)
+            if (recv(sockfd, user, struct_size, 0) < 0)
             {
                 perror("Receive failed");
                 close(sockfd);
                 exit(EXIT_FAILURE);
             }
 
-            printf("Login successful as %s %s\n", ((struct Student *)user)->name, ((struct Admin *)user)->password);
             break;
         case FAILED:
             printf("Login failed. Please try again.\n");
@@ -552,7 +821,7 @@ int main()
         case INVALID_CREDENTIALS:
             printf("Invalid credentials. Please try again.\n");
             break;
-        case USER_NOT_FOUND:
+        case NOT_FOUND:
             printf("User not found.\n");
             break;
         default:
@@ -563,6 +832,7 @@ int main()
 
     while (1)
     {
+        printf("\n----------------------------------------------\n\n");
         switch (isLoggedInAs)
         {
         case ADMIN:
@@ -576,6 +846,8 @@ int main()
             break;
         }
     }
+    printf("\n----------------------------------------------\n\n");
+    free(user);
     // Close socket
     close(sockfd);
     return 0;
