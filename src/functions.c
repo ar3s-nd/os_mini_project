@@ -1,4 +1,5 @@
 #include "../lib/server.h"
+#include <time.h>
 
 int add_entity(void *data, int type)
 {
@@ -32,14 +33,13 @@ int add_entity(void *data, int type)
     {
         return FAILED;
     }
-    LOG("id: %s\n", id);
 
     pthread_mutex_lock(file_mutex);
 
     int fd = open(filename, O_CREAT | O_RDWR, 0744);
     if (fd == -1)
     {
-        perror("Failed to open file");
+        LOGMSG("Failed to open file.");
         pthread_mutex_unlock(file_mutex);
         return FAILED;
     }
@@ -50,12 +50,6 @@ int add_entity(void *data, int type)
     void *existing = malloc(struct_size);
     while (read(fd, existing, struct_size) > 0)
     {
-        if (type == STUDENT)
-            LOG("Student ID: %s\n", ((struct Student *)existing)->student_id);
-        else if (type == FACULTY)
-            LOG("Faculty ID: %s\n", ((struct Faculty *)existing)->faculty_id);
-        else if (type == COURSE)
-            LOG("Course Code: %s\n", ((struct Course *)existing)->course_code);
         if ((type == STUDENT && strcmp(((struct Student *)existing)->student_id, id) == 0 && ((struct Student *)existing)->isEXISTS) ||
             (type == FACULTY && strcmp(((struct Faculty *)existing)->faculty_id, id) == 0 && ((struct Faculty *)existing)->isEXISTS) ||
             (type == COURSE && strcmp(((struct Course *)existing)->course_code, id) == 0 && ((struct Course *)existing)->isEXISTS))
@@ -82,7 +76,7 @@ int add_entity(void *data, int type)
     ssize_t bytes_written = write(fd, data, struct_size);
     if (bytes_written == -1)
     {
-        perror("Failed to write to file");
+        LOGMSG("Failed to write to file");
         close(fd);
         pthread_mutex_unlock(file_mutex);
         return FAILED;
@@ -91,8 +85,6 @@ int add_entity(void *data, int type)
     cnt++;
     lseek(fd, 0, SEEK_SET);
     write(fd, &cnt, sizeof(cnt));
-
-    LOG("Entity added successfully.\n");
 
     close(fd);
     pthread_mutex_unlock(file_mutex);
@@ -128,13 +120,12 @@ void *view_entity(int *count_out, int type)
         return NULL;
     }
 
-    LOG("Entity List:\n");
     pthread_mutex_lock(file_mutex);
 
     int fd = open(filename, O_RDONLY);
     if (fd == -1)
     {
-        perror("Failed to open file");
+        LOGMSG("Failed to open file");
         pthread_mutex_unlock(file_mutex);
         return NULL;
     }
@@ -159,19 +150,16 @@ void *view_entity(int *count_out, int type)
         if (type == STUDENT)
         {
             struct Student *stu = (struct Student *)temp;
-            LOG("Name: %s, ID: %s, Exists: %d\n", stu->name, stu->student_id, stu->isEXISTS);
             exists = stu->isEXISTS;
         }
         else if (type == FACULTY)
         {
             struct Faculty *fac = (struct Faculty *)temp;
-            LOG("Name: %s, ID: %s, Exists: %d, Course Count: %d\n", fac->name, fac->faculty_id, fac->isEXISTS, fac->course_count);
             exists = fac->isEXISTS;
         }
         else if (type == COURSE)
         {
             struct Course *course = (struct Course *)temp;
-            LOG("Name: %s, Code: %s, Exists: %d\n", course->course_name, course->course_code, course->isEXISTS);
             exists = course->isEXISTS;
         }
 
@@ -207,13 +195,12 @@ void *view_courses(char *entity_id, int *count_out, int type)
     file_mutex = &course_file_mutex;
     struct_size = sizeof(struct Course);
 
-    LOG("Entity List:\n");
     pthread_mutex_lock(file_mutex);
 
     int fd = open(filename, O_RDONLY);
     if (fd == -1)
     {
-        perror("Failed to open file");
+        LOGMSG("Failed to open file");
         pthread_mutex_unlock(file_mutex);
         return NULL;
     }
@@ -235,11 +222,8 @@ void *view_courses(char *entity_id, int *count_out, int type)
     {
         int exists = 0;
         struct Course *course = (struct Course *)temp;
-        LOG("facultyid: %s %s\n", entity_id, course->faculty_id);
         if (type == FACULTY && !strcmp(course->faculty_id, entity_id))
         {
-            LOG("%s %s\n", course->faculty_id, entity_id);
-            LOG("Name: %s, Code: %s, Exists: %d\n", course->course_name, course->course_code, course->isEXISTS);
             exists = course->isEXISTS;
         }
         else if (type == STUDENT)
@@ -248,7 +232,6 @@ void *view_courses(char *entity_id, int *count_out, int type)
             {
                 if (!strcmp(course->studentlist[i], entity_id))
                 {
-                    LOG("Name: %s, Code: %s, Exists: %d\n", course->course_name, course->course_code, course->isEXISTS);
                     exists = course->isEXISTS;
                     break;
                 }
@@ -284,7 +267,7 @@ int change_student_activeness(struct Student *student, int isActive)
     int fd = open(STUDENT_FILE, O_RDWR);
     if (fd == -1)
     {
-        perror("Failed to open file");
+        LOGMSG("Failed to open file");
         pthread_mutex_unlock(&student_file_mutex);
         return FAILED;
     }
@@ -333,7 +316,6 @@ int modify_entity(void *data, int type)
         filename = FACULTY_FILE;
         struct_size = sizeof(struct Faculty);
         strcpy(id, ((struct Faculty *)data)->faculty_id);
-        LOG("HERE: %d", ((struct Faculty *)data)->course_count);
     }
     else if (type == COURSE)
     {
@@ -344,16 +326,14 @@ int modify_entity(void *data, int type)
     }
     else
     {
-        LOG("Invalid type for modify_entity\n");
         return FAILED;
     }
 
     pthread_mutex_lock(file_mutex);
-    LOG("Modifying entity with ID: %s\n", id);
     int fd = open(filename, O_RDWR);
     if (fd == -1)
     {
-        perror("Failed to open file");
+        LOGMSG("Failed to open file");
         pthread_mutex_unlock(file_mutex);
         return FAILED;
     }
@@ -368,7 +348,6 @@ int modify_entity(void *data, int type)
             (type == FACULTY && strcmp(((struct Faculty *)existing)->faculty_id, id) == 0) ||
             (type == COURSE && strcmp(((struct Course *)existing)->course_code, id) == 0))
         {
-            LOG("Total count: %d\n", cnt);
             lseek(fd, -struct_size, SEEK_CUR); // Move back to the position of the found entity
             if (type == COURSE)
             {
@@ -385,11 +364,6 @@ int modify_entity(void *data, int type)
                 write(fd, data, struct_size);  // Write the modified data
             lseek(fd, -struct_size, SEEK_CUR); // Move back to the position of the found entity
             read(fd, existing, struct_size);   // Read the modified data
-            LOG("Modified entity: %s\n", ((struct Course *)existing)->course_code);
-            LOG("Modified entity: %s\n", ((struct Course *)existing)->course_name);
-            LOG("Modified entity: %s\n", ((struct Course *)existing)->faculty_id);
-            LOG("Modified entity: %d\n", ((struct Course *)existing)->student_limit);
-            LOG("Modified entity: %d\n", ((struct Course *)existing)->student_count);
 
             free(existing);
             close(fd);
@@ -414,6 +388,9 @@ int remove_course(struct Command command)
         return FAILED;
     }
 
+    int flag = 0;
+    read(fd, &flag, sizeof(int));
+    flag = 0;
     struct Course course;
     while (read(fd, &course, sizeof(struct Course)))
     {
@@ -421,11 +398,22 @@ int remove_course(struct Command command)
         {
             if (course.student_count != 0)
             {
+                close(fd);
                 pthread_mutex_unlock(&course_file_mutex);
                 return INVALID_OPERATION;
             }
+
+            if (strcmp(course.faculty_id, command.faculty.faculty_id) == 0)
+            {
+                flag = 1;
+            }
         }
     }
+    pthread_mutex_unlock(&course_file_mutex);
+    close(fd);
+
+    if (!flag)
+        return NOT_FOUND;
 
     int status = modify_entity(&command.course, COURSE);
     if (status != SUCCESS)
@@ -446,7 +434,7 @@ int enroll_course(struct Command command)
     int fd = open(COURSE_FILE, O_RDWR);
     if (fd == -1)
     {
-        perror("Failed to open file");
+        LOGMSG("Failed to open file");
         pthread_mutex_unlock(&course_file_mutex);
         return FAILED;
     }
@@ -491,7 +479,7 @@ int drop_course(struct Command command)
     int fd = open(COURSE_FILE, O_RDWR);
     if (fd == -1)
     {
-        perror("Failed to open file");
+        LOGMSG("Failed to open file");
         pthread_mutex_unlock(&course_file_mutex);
         return FAILED;
     }
@@ -506,7 +494,6 @@ int drop_course(struct Command command)
     {
         if (strcmp(temp.course_code, command.course.course_code) == 0 && temp.isEXISTS)
         {
-            LOG("HERERERERE %s\n", temp.course_code);
             lseek(fd, -sizeof(struct Course), SEEK_CUR); // Move back to the position of the found course
 
             for (int i = 0; i < temp.student_count; i++)

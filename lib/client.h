@@ -17,7 +17,7 @@
 #include <netinet/in.h>
 
 #define MAX_SIZE 100
-#define LOG(format, ...) printf(format, ##__VA_ARGS__)
+#define PRINT(format, ...) printf(format, ##__VA_ARGS__)
 
 // Error Codes
 #define SUCCESS 0
