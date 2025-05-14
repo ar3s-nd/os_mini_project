@@ -830,12 +830,12 @@ int main()
         }
         else if (role == FACULTY)
         {
-            strcpy(command.faculty.name, username);
+            strcpy(command.faculty.faculty_id, username);
             strcpy(command.faculty.password, password);
         }
         else if (role == STUDENT)
         {
-            strcpy(command.student.name, username);
+            strcpy(command.student.student_id, username);
             strcpy(command.student.password, password);
         }
 

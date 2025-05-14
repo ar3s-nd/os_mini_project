@@ -105,7 +105,8 @@ int tryLogin(struct Command *command)
         {
             struct Student *student_data = (struct Student *)data;
             struct Student *student_command_data = (struct Student *)command_data;
-            if (!strcmp(student_data->name, student_command_data->name))
+            LOGMSG("%s %s\n", student_data->student_id, student_command_data->student_id);
+            if (!strcmp(student_data->student_id, student_command_data->student_id))
             {
                 if (!strcmp(student_data->password, student_command_data->password))
                 {
@@ -133,7 +134,7 @@ int tryLogin(struct Command *command)
         {
             struct Faculty *faculty_data = (struct Faculty *)data;
             struct Faculty *faculty_command_data = (struct Faculty *)command_data;
-            if (!strcmp(faculty_data->name, faculty_command_data->name))
+            if (!strcmp(faculty_data->faculty_id, faculty_command_data->faculty_id))
             {
                 if (!strcmp(faculty_data->password, faculty_command_data->password))
                 {
@@ -180,10 +181,16 @@ int tryLogin(struct Command *command)
     return NOT_FOUND;
 }
 
+struct thread_args
+{
+    int sockfd, clientid;
+};
+
 void *handle_client(void *arg)
 {
     int role = NO_USER;
-    int sockfd = *(int *)arg;
+    int sockfd = ((struct thread_args *)arg)->sockfd;
+    int clientid = ((struct thread_args *)arg)->clientid;
     free(arg);
 
     struct Command command;
@@ -444,6 +451,7 @@ void *handle_client(void *arg)
     }
 
     close(sockfd);
+    LOGMSG("Client disconnected\nID: %d\nSocket: %d", clientid, sockfd);
     return NULL;
 }
 
@@ -494,6 +502,7 @@ void initialiseFiles()
 void handleSignals(int sig)
 {
     close(sockfd);
+    LOGMSG("Server is terminating...\n");
     exit(0);
 }
 
@@ -524,6 +533,8 @@ int main()
         exit(EXIT_FAILURE);
     }
     dup2(logfd, STDOUT_FILENO);
+
+    LOGMSG("Server is starting...\n");
 
     int addrlen = sizeof(serv_addr);
     int *new_sockfd;
@@ -564,29 +575,31 @@ int main()
     pthread_mutex_init(&course_file_mutex, NULL);
     pthread_mutex_init(&faculty_file_mutex, NULL);
 
+    int id = 1;
     while (1)
     {
-        new_sockfd = malloc(sizeof(int));
-        *new_sockfd = accept(sockfd, (struct sockaddr *)&serv_addr, &addrlen); // accept a new connection from a new client
-        if (*new_sockfd < 0)
+        struct thread_args *args = malloc(sizeof(struct thread_args));
+        args->sockfd = accept(sockfd, (struct sockaddr *)&serv_addr, &addrlen); // accept a new connection from a new client
+        if (args->sockfd < 0)
         {
-            free(new_sockfd);
+            free(args);
             continue;
         }
 
-        pthread_t tid;
         // create a new thread to handle that client
-        pthread_create(&tid, NULL, handle_client, new_sockfd);
+        args->clientid = id++;
+        pthread_t tid;
+        pthread_create(&tid, NULL, handle_client, args);
 
-        LOGMSG("New client connected.\nID: %ld\nSocket: %d", tid, *new_sockfd);
-
+        LOGMSG("New client connected.\nID: %d\nSocket: %d", args->clientid, args->sockfd);
         if (tid == 0)
         {
             perror("Failed to create thread");
-            close(*new_sockfd);
-            free(new_sockfd);
+            close(args->sockfd);
+            free(args);
             continue;
         }
+
         // Detach the thread to allow it to clean up after itself
         pthread_detach(tid);
     }
