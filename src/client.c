@@ -358,10 +358,9 @@ void logout()
     command.whereData = NO_USER;
 
     int response = sendToServer(command);
-    if (response == SUCCESS)
-        PRINT("Logged out successfully.\n");
-    else
-        PRINT("Failed to log out.\n");
+    PRINT("Logged out successfully.\n");
+    PRINT("\n----------------------------------------------\n");
+
     close(sockfd);
     exit(SUCCESS);
 }
@@ -764,6 +763,7 @@ void showStudentCommands()
 void handleSignals(int sig)
 {
     PRINT("\nExiting...\n");
+    PRINT("\n----------------------------------------------\n");
     free(user);
     close(sockfd);
     exit(0);
@@ -800,12 +800,20 @@ int main()
         exit(EXIT_FAILURE);
     }
 
+    PRINT("\n----------------------------------------------\n\n");
     int isLoggedInAs = NO_USER;
     while (isLoggedInAs == NO_USER)
     {
-        PRINT("Enter your role (\n\t0 for Admin, \n\t1 for Faculty, \n\t2 for Student\n): ");
+        PRINT("Enter your role (\n\t0 for Admin, \n\t1 for Faculty, \n\t2 for Student,\n\t3. Exit\n): ");
         int role;
         scanf("%d", &role);
+        if (role == 3)
+        {
+            PRINT("Exiting...\n");
+            PRINT("\n----------------------------------------------\n");
+            close(sockfd);
+            exit(0);
+        }
         role += ADMIN;
         if (role < ADMIN || role > STUDENT)
         {
@@ -840,6 +848,9 @@ int main()
         }
 
         int response = sendToServer(command);
+        if (response != SUCCESS)
+            PRINT("\n----------------------------------------------\n\n");
+
         switch (response)
         {
         case SUCCESS:
@@ -885,6 +896,8 @@ int main()
             PRINT("Unknown error occurred: %d\n", response);
             break;
         }
+        if (response != SUCCESS)
+            PRINT("\n----------------------------------------------\n\n");
     }
 
     while (1)
