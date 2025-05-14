@@ -6,11 +6,11 @@
 
 struct sockaddr_in serv_addr;
 int sockfd;
-
 void *user;
 
 int sendToServer(struct Command command)
 {
+    // Send command to server
     if (send(sockfd, &command, sizeof(command), 0) < 0)
     {
         perror("Send failed");
@@ -30,6 +30,7 @@ int sendToServer(struct Command command)
     return response;
 }
 
+// Function to add a new entity (student, faculty, or course)
 void addEntity(int role, int type)
 {
     struct Command command;
@@ -93,16 +94,23 @@ void addEntity(int role, int type)
     if (response == SUCCESS)
     {
         if (type != COURSE)
+        {
+            // if the added entity is a student or faculty
             PRINT("Added successfully.\n");
+        }
         else
         {
-            strcpy(((struct Faculty *)user)->courses[((struct Faculty *)user)->course_count], command.course.course_code);
+            // if course is added successfully, add it to the faculty's course list
+            strcpy(((struct Faculty *)user)->courses[((struct Faculty *)user)->course_count],
+                   command.course.course_code);
             ((struct Faculty *)user)->course_count++;
+
             struct Command com;
             com.faculty = *((struct Faculty *)user);
             com.cmd_code = MODIFY_FACULTY;
             com.role = ADMIN;
             com.whereData = FACULTY;
+
             int res = sendToServer(com);
             if (res == SUCCESS)
                 PRINT("Added successfully.\n");
@@ -186,44 +194,64 @@ void viewEntityDetails(int role, int type)
             if (type == STUDENT)
             {
                 struct Student *student = (struct Student *)entities_list + i;
-                PRINT("Name: %s, ID: %s, Active: %d, Course Count: %d\n", student->name, student->student_id, student->isActive - ISBLOCKED, student->course_count);
+                PRINT("Name: %s, ID: %s, Active: %d, Course Count: %d\n",
+                      student->name,
+                      student->student_id,
+                      student->isActive - ISBLOCKED,
+                      student->course_count);
+
                 if (student->course_count > 0)
-                    PRINT("Courses: ");
-                for (int j = 0; j < student->course_count; j++)
                 {
-                    PRINT("%s ", student->course_list[j]);
-                }
-                if (student->course_count > 0)
+                    PRINT("Courses: ");
+                    for (int j = 0; j < student->course_count; j++)
+                    {
+                        PRINT("%s ", student->course_list[j]);
+                    }
                     PRINT("\n");
+                }
             }
             else if (type == FACULTY)
             {
                 struct Faculty *faculty = (struct Faculty *)entities_list + i;
-                PRINT("Name: %s, ID: %s, Department: %s, Course Count: %d\n", faculty->name, faculty->faculty_id, faculty->department, faculty->course_count);
+                PRINT("Name: %s, ID: %s, Department: %s, Course Count: %d\n",
+                      faculty->name,
+                      faculty->faculty_id,
+                      faculty->department,
+                      faculty->course_count);
+
                 if (faculty->course_count > 0)
-                    PRINT("Courses: ");
-                for (int j = 0; j < faculty->course_count; j++)
                 {
-                    PRINT("%s ", faculty->courses[j]);
-                }
-                if (faculty->course_count > 0)
+                    PRINT("Courses: ");
+                    for (int j = 0; j < faculty->course_count; j++)
+                    {
+                        PRINT("%s ", faculty->courses[j]);
+                    }
                     PRINT("\n");
+                }
             }
             else if (type == COURSE)
             {
+                // this is for viewing all courses irrespective of the faculty
                 struct Course *course = (struct Course *)entities_list + i;
                 if (strcmp(course->faculty_id, ((struct Faculty *)user)->faculty_id))
                     continue;
 
-                PRINT("Name: %s, Code: %s, Student Count: %d/%d, Faculty: %s\n", course->course_name, course->course_code, course->student_count, course->student_limit, course->faculty_id);
+                PRINT("Name: %s, Code: %s, Student Count: %d/%d, Faculty: %s\n",
+                      course->course_name,
+                      course->course_code,
+                      course->student_count,
+                      course->student_limit,
+                      course->faculty_id);
+
                 if (course->student_count > 0)
-                    PRINT("Students: ");
-                for (int j = 0; j < course->student_count; j++)
                 {
-                    PRINT("%s ", course->studentlist[j]);
-                }
-                if (course->student_count > 0)
+                    PRINT("Students: ");
+                    for (int j = 0; j < course->student_count; j++)
+                    {
+                        PRINT("%s ", course->studentlist[j]);
+                    }
                     PRINT("\n");
+                }
             }
             printf("****************************************************************************\n");
         }
@@ -249,7 +277,8 @@ void changeStudentActiveness(int isActive)
 
     int response = sendToServer(command);
     if (response == SUCCESS)
-        (isActive == ISACTIVE) ? PRINT("Student activeness changed successfully to ACTIVE\n") : PRINT("Student activeness changed successfully to BLOCKED\n");
+        (isActive == ISACTIVE) ? PRINT("Student activeness changed successfully to ACTIVE\n")
+                               : PRINT("Student activeness changed successfully to BLOCKED\n");
     else
         PRINT("Failed to change student activeness.\n");
 }
@@ -435,15 +464,22 @@ void viewCourses(int type)
             if (type == FACULTY)
             {
                 struct Course *course = (struct Course *)entities_list + i;
-                PRINT("Name: %s, Code: %s, Student Count: %d/%d, Faculty: %s\n", course->course_name, course->course_code, course->student_count, course->student_limit, course->faculty_id);
+                PRINT("Name: %s, Code: %s, Student Count: %d/%d, Faculty: %s\n",
+                      course->course_name,
+                      course->course_code,
+                      course->student_count,
+                      course->student_limit,
+                      course->faculty_id);
+
                 if (course->student_count > 0)
-                    PRINT("Students: ");
-                for (int j = 0; j < course->student_count; j++)
                 {
-                    PRINT("%s ", course->studentlist[j]);
-                }
-                if (course->student_count > 0)
+                    PRINT("Students: ");
+                    for (int j = 0; j < course->student_count; j++)
+                    {
+                        PRINT("%s ", course->studentlist[j]);
+                    }
                     PRINT("\n");
+                }
             }
 
             else if (type == STUDENT)
@@ -454,7 +490,11 @@ void viewCourses(int type)
                     if (strcmp(course->studentlist[j], ((struct Student *)user)->student_id))
                         continue;
                 }
-                PRINT("Name: %s, Code: %s, Faculty: %s\n", course->course_name, course->course_code, course->faculty_id);
+
+                PRINT("Name: %s, Code: %s, Faculty: %s\n",
+                      course->course_name,
+                      course->course_code,
+                      course->faculty_id);
             }
             printf("****************************************************************************\n");
         }
@@ -608,14 +648,16 @@ void enrollCourse()
             return;
         }
     }
-    strcpy(command.student.course_list[command.student.course_count], command.course.course_code);
+    strcpy(command.student.course_list[command.student.course_count],
+           command.course.course_code);
     command.student.course_count++;
 
     int response = sendToServer(command);
     if (response == SUCCESS)
     {
         PRINT("Student enrolled successfully.\n");
-        strcpy(((struct Student *)user)->course_list[((struct Student *)user)->course_count], command.course.course_code);
+        strcpy(((struct Student *)user)->course_list[((struct Student *)user)->course_count],
+               command.course.course_code);
         ((struct Student *)user)->course_count++;
     }
     else if (response == NOT_FOUND)
@@ -643,7 +685,8 @@ void dropCourse()
         {
             for (; i < command.student.course_count - 1; i++)
             {
-                strcpy(command.student.course_list[i], command.student.course_list[i + 1]);
+                strcpy(command.student.course_list[i],
+                       command.student.course_list[i + 1]);
             }
             command.student.course_count--;
             isstudentenrolled = 1;
@@ -664,7 +707,8 @@ void dropCourse()
 
         for (int i = 0; i < command.student.course_count; i++)
         {
-            strcpy(((struct Student *)user)->course_list[i], command.student.course_list[i]);
+            strcpy(((struct Student *)user)->course_list[i],
+                   command.student.course_list[i]);
         }
         ((struct Student *)user)->course_count--;
     }
@@ -861,7 +905,6 @@ int main()
     }
     PRINT("\n----------------------------------------------\n\n");
     free(user);
-    // Close socket
     close(sockfd);
     return 0;
 }
