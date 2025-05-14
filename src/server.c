@@ -502,7 +502,7 @@ void initialiseFiles()
 void handleSignals(int sig)
 {
     close(sockfd);
-    LOGMSG("Server is terminating...\n");
+    LOGMSG("Server is terminating...");
     exit(0);
 }
 
