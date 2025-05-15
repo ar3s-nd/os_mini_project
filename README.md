@@ -10,7 +10,7 @@ This project includes the following scripts to help you get started:
    ```
 
 2. **`init.sh`**  
-    Run this script to initialize the database files with dummy values. It sets up the necessary data for the project to function correctly.
+   Run this script to initialize the database files with dummy values. It sets up the necessary data for the project to function correctly.
 
    ```bash
    bash init.sh
@@ -22,4 +22,15 @@ This project includes the following scripts to help you get started:
    bash client.sh
    ```
 
-Follow the above steps in order to ensure proper functionality of the project.
+---
+
+> ⚠️ **Note:**
+> Follow the above steps **in order** to ensure proper functionality of the project.
+
+---
+
+
+**Submitted by:**  
+   Navaneeth D  
+   IMT2023095
+
