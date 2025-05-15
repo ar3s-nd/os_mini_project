@@ -78,6 +78,11 @@ void addEntity(int role, int type)
     }
     else if (type == COURSE)
     {
+        if (((struct Faculty *)user)->course_count >= MAX_SIZE)
+        {
+            PRINT("Cannot add more courses.");
+            return;
+        }
         PRINT("Enter course name: ");
         scanf("%s", command.course.course_name);
 
@@ -639,6 +644,11 @@ void showFacultyCommands()
 
 void enrollCourse()
 {
+    if (((struct Student *)user)->course_count >= MAX_SIZE)
+    {
+        PRINT("Cannot enrol for more courses.");
+        return;
+    }
     struct Command command;
     command.cmd_code = ENROLL_COURSE;
     command.role = STUDENT;
