@@ -87,7 +87,6 @@ void addEntity(int role, int type)
         PRINT("Enter student limit: ");
         scanf("%d", &command.course.student_limit);
         strcpy(command.course.faculty_id, ((struct Faculty *)user)->faculty_id);
-        PRINT("Faculty ID: %s\n", ((struct Faculty *)user)->faculty_id);
     }
 
     int response = sendToServer(command);
@@ -110,6 +109,7 @@ void addEntity(int role, int type)
             com.cmd_code = MODIFY_FACULTY;
             com.role = ADMIN;
             com.whereData = FACULTY;
+            com.faculty.modifyCourse = 1;
 
             int res = sendToServer(com);
             if (res == SUCCESS)
@@ -304,6 +304,7 @@ void modifyEntity(int role, int type)
         PRINT("Enter new student password: ");
         scanf("%s", command.student.password);
         command.student.isEXISTS = 1;
+        command.student.modifyCourse = 0;
     }
     else if (type == FACULTY)
     {
@@ -316,6 +317,7 @@ void modifyEntity(int role, int type)
         PRINT("Enter new department: ");
         scanf("%s", command.faculty.department);
         command.faculty.isEXISTS = 1;
+        command.faculty.modifyCourse = 0;
     }
     else if (type == COURSE)
     {
@@ -656,6 +658,7 @@ void enrollCourse()
     strcpy(command.student.course_list[command.student.course_count],
            command.course.course_code);
     command.student.course_count++;
+    command.student.modifyCourse = 1;
 
     int response = sendToServer(command);
     if (response == SUCCESS)
@@ -683,6 +686,7 @@ void dropCourse()
     PRINT("Enter course code: ");
     scanf("%s", command.course.course_code);
     command.student = *((struct Student *)user);
+    command.student.modifyCourse = 1;
     int isstudentenrolled = 0;
     for (int i = 0; i < command.student.course_count; i++)
     {

@@ -150,12 +150,13 @@ void *view_entity(int *count_out, int type)
         if (type == STUDENT)
         {
             struct Student *stu = (struct Student *)temp;
-            exists = stu->isEXISTS;
+            LOGMSG("Student id: %s\nCourse Count: %d", stu->student_id, stu->course_count);
+            exists = 1;
         }
         else if (type == FACULTY)
         {
             struct Faculty *fac = (struct Faculty *)temp;
-            exists = fac->isEXISTS;
+            exists = 1;
         }
         else if (type == COURSE)
         {
@@ -353,16 +354,43 @@ int modify_entity(void *data, int type)
             {
                 struct Course old = *((struct Course *)existing);
                 struct Course new = *((struct Course *)data);
-                strcpy(old.course_code, new.course_code);
                 strcpy(old.course_name, new.course_name);
                 old.student_limit = new.student_limit;
-                old.student_count = new.student_count;
-                old.isEXISTS = new.isEXISTS;
+                write(fd, &old, struct_size); // Write the modified data
+            }
+            else if (type == FACULTY)
+            {
+                struct Faculty old = *((struct Faculty *)existing);
+                struct Faculty new = *((struct Faculty *)data);
+                strcpy(old.name, new.name);
+                strcpy(old.password, new.password);
+                strcpy(old.department, new.department);
+                if (new.modifyCourse)
+                {
+                    old.course_count = new.course_count;
+                    for (int i = 0; i < new.course_count; i++)
+                    {
+                        strcpy(old.courses[i], new.courses[i]);
+                    }
+                }
                 write(fd, &old, struct_size); // Write the modified data
             }
             else
-                write(fd, data, struct_size); // Write the modified data
-
+            {
+                struct Student old = *((struct Student *)existing);
+                struct Student new = *((struct Student *)data);
+                strcpy(old.name, new.name);
+                strcpy(old.password, new.password);
+                if (new.modifyCourse)
+                {
+                    old.course_count = new.course_count;
+                    for (int i = 0; i < new.course_count; i++)
+                    {
+                        strcpy(old.course_list[i], new.course_list[i]);
+                    }
+                }
+                write(fd, &old, struct_size); // Write the modified data
+            }
             free(existing);
             close(fd);
             pthread_mutex_unlock(file_mutex);

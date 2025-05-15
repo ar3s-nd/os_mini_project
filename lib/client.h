@@ -100,7 +100,7 @@ struct Faculty
     char department[50];
     char courses[MAX_SIZE][50];
     int course_count;
-    int isEXISTS;
+    int isEXISTS, modifyCourse;
 };
 
 struct Student
@@ -108,7 +108,7 @@ struct Student
     char name[50];
     char password[50];
     char student_id[50];
-    int isEXISTS, isActive;
+    int isEXISTS, isActive, modifyCourse;
     int course_count;
     char course_list[MAX_SIZE][50]; // Changed to pointer for dynamic allocation
 };

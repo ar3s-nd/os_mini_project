@@ -105,7 +105,6 @@ int tryLogin(struct Command *command)
         {
             struct Student *student_data = (struct Student *)data;
             struct Student *student_command_data = (struct Student *)command_data;
-            LOGMSG("%s %s\n", student_data->student_id, student_command_data->student_id);
             if (!strcmp(student_data->student_id, student_command_data->student_id))
             {
                 if (!strcmp(student_data->password, student_command_data->password))
