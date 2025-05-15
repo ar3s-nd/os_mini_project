@@ -361,9 +361,7 @@ int modify_entity(void *data, int type)
                 write(fd, &old, struct_size); // Write the modified data
             }
             else
-                write(fd, data, struct_size);  // Write the modified data
-            lseek(fd, -struct_size, SEEK_CUR); // Move back to the position of the found entity
-            read(fd, existing, struct_size);   // Read the modified data
+                write(fd, data, struct_size); // Write the modified data
 
             free(existing);
             close(fd);

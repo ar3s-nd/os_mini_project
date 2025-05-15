@@ -358,7 +358,13 @@ void logout()
     command.whereData = NO_USER;
 
     int response = sendToServer(command);
-    PRINT("Logged out successfully.\n");
+    if (response == NOT_LOGGED_IN)
+    {
+        PRINT("\n\n----------------------------------------------\n");
+        PRINT("\n Exiting...\n");
+    }
+    else
+        PRINT("Logged out successfully.\n");
     PRINT("\n----------------------------------------------\n");
 
     close(sockfd);
@@ -760,26 +766,17 @@ void showStudentCommands()
     }
 }
 
-void handleSignals(int sig)
-{
-    PRINT("\nExiting...\n");
-    PRINT("\n----------------------------------------------\n");
-    free(user);
-    close(sockfd);
-    exit(0);
-}
-
 int main()
 {
-    signal(SIGINT, handleSignals);  // Interrupt from keyboard
-    signal(SIGTERM, handleSignals); // Termination signal
-    signal(SIGQUIT, handleSignals); // Quit signal
-    signal(SIGSEGV, handleSignals); // Segmentation fault
-    signal(SIGABRT, handleSignals); // Abnormal termination
-    signal(SIGILL, handleSignals);  // Illegal instruction
-    signal(SIGFPE, handleSignals);  // Floating-point exception
-    signal(SIGBUS, handleSignals);  // Bus error
-    signal(SIGPIPE, SIG_IGN);       // Ignore broken pipe
+    signal(SIGINT, logout);   // Interrupt from keyboard
+    signal(SIGTERM, logout);  // Termination signal
+    signal(SIGQUIT, logout);  // Quit signal
+    signal(SIGSEGV, logout);  // Segmentation fault
+    signal(SIGABRT, logout);  // Abnormal termination
+    signal(SIGILL, logout);   // Illegal instruction
+    signal(SIGFPE, logout);   // Floating-point exception
+    signal(SIGBUS, logout);   // Bus error
+    signal(SIGPIPE, SIG_IGN); // Ignore broken pipe
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
     {
