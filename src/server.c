@@ -105,7 +105,6 @@ int tryLogin(struct Command *command)
         {
             struct Student *student_data = (struct Student *)data;
             struct Student *student_command_data = (struct Student *)command_data;
-            LOGMSG("%s %s\n", student_data->student_id, student_command_data->student_id);
             if (!strcmp(student_data->student_id, student_command_data->student_id))
             {
                 if (!strcmp(student_data->password, student_command_data->password))
@@ -181,6 +180,69 @@ int tryLogin(struct Command *command)
     return NOT_FOUND;
 }
 
+char *getCommandName(int cmd_code)
+{
+    switch (cmd_code)
+    {
+    case LOGIN:
+        return "LOGIN";
+        break;
+    case LOGOUT:
+        return "LOGOUT";
+        break;
+    case ADD_FACULTY:
+        return "ADD_FACULTY";
+        break;
+    case ADD_STUDENT:
+        return "ADD_STUDENT";
+        break;
+    case ADD_COURSE:
+        return "ADD_COURSE";
+        break;
+    case VIEW_ADMIN:
+        return "VIEW_ADMIN";
+        break;
+    case VIEW_FACULTY:
+        return "VIEW_FACULTY";
+        break;
+    case VIEW_STUDENT:
+        return "VIEW_STUDENT";
+        break;
+    case VIEW_COURSE:
+        return "VIEW_COURSE";
+        break;
+    case ACTIVATE_STUDENT:
+        return "ACTIVATE_STUDENT";
+        break;
+    case BLOCK_STUDENT:
+        return "BLOCK_STUDENT";
+        break;
+    case MODIFY_STUDENT:
+        return "MODIFY_STUDENT";
+        break;
+    case MODIFY_FACULTY:
+        return "MODIFY_FACULTY";
+        break;
+    case MODIFY_COURSE:
+        return "MODIFY_COURSE";
+        break;
+    case REMOVE_COURSE:
+        return "REMOVE_COURSE";
+        break;
+    case CHANGE_PASSWORD:
+        return "CHANGE_PASSWORD";
+        break;
+    case ENROLL_COURSE:
+        return "ENROLL_COURSE";
+        break;
+    case DROP_COURSE:
+        return "DROP_COURSE";
+        break;
+    default:
+        return "INVALID_COMMAND";
+    }
+}
+
 struct thread_args
 {
     int sockfd, clientid;
@@ -203,6 +265,13 @@ void *handle_client(void *arg)
 
     while (1)
     {
+        LOGMSG("Client has made a request.\nClient ID: %d\nAccess: %s\nCommand: %s",
+               clientid,
+               role == ADMIN     ? "Admin"
+               : role == STUDENT ? "Student"
+               : role == FACULTY ? "Faculty"
+                                 : "Not Logged In",
+               getCommandName(command.cmd_code));
         if (role == NO_USER)
         {
             if (command.cmd_code == LOGIN)
@@ -450,8 +519,8 @@ void *handle_client(void *arg)
         }
     }
 
+    LOGMSG("Client disconnected\nClient ID: %d\nSocket: %d", clientid, sockfd);
     close(sockfd);
-    LOGMSG("Client disconnected\nID: %d\nSocket: %d", clientid, sockfd);
     return NULL;
 }
 
@@ -580,6 +649,7 @@ int main()
     {
         struct thread_args *args = malloc(sizeof(struct thread_args));
         args->sockfd = accept(sockfd, (struct sockaddr *)&serv_addr, &addrlen); // accept a new connection from a new client
+
         if (args->sockfd < 0)
         {
             free(args);
@@ -588,10 +658,10 @@ int main()
 
         // create a new thread to handle that client
         args->clientid = id++;
+        LOGMSG("New client connected.\nClient ID: %d\nSocket: %d", args->clientid, args->sockfd);
         pthread_t tid;
         pthread_create(&tid, NULL, handle_client, args);
 
-        LOGMSG("New client connected.\nID: %d\nSocket: %d", args->clientid, args->sockfd);
         if (tid == 0)
         {
             perror("Failed to create thread");

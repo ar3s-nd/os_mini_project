@@ -88,19 +88,22 @@ struct Course;
 // Struct Definitions
 struct Admin
 {
+    // admin name to be used as PK
     char name[50];
     char password[50];
 };
 
 struct Faculty
 {
+    // faculty_id to be used as PK
     char name[50];
     char password[50];
     char faculty_id[50];
     char department[50];
     char courses[MAX_SIZE][50];
     int course_count;
-    int isEXISTS;
+    int isEXISTS, modifyCourse;
+    // modifyCourse is to check if course_count and course list should be modified or not when using modify_entry()
 };
 
 struct Student
@@ -108,9 +111,10 @@ struct Student
     char name[50];
     char password[50];
     char student_id[50];
-    int isEXISTS, isActive;
+    // modifyCourse is to check if course_count and course list should be modified or not when using modify_entry()
+    int isEXISTS, isActive, modifyCourse;
     int course_count;
-    char course_list[MAX_SIZE][50]; // Changed to pointer for dynamic allocation
+    char course_list[MAX_SIZE][50];
 };
 
 struct Course

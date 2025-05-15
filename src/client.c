@@ -78,6 +78,11 @@ void addEntity(int role, int type)
     }
     else if (type == COURSE)
     {
+        if (((struct Faculty *)user)->course_count >= MAX_SIZE)
+        {
+            PRINT("Cannot add more courses.");
+            return;
+        }
         PRINT("Enter course name: ");
         scanf("%s", command.course.course_name);
 
@@ -87,7 +92,6 @@ void addEntity(int role, int type)
         PRINT("Enter student limit: ");
         scanf("%d", &command.course.student_limit);
         strcpy(command.course.faculty_id, ((struct Faculty *)user)->faculty_id);
-        PRINT("Faculty ID: %s\n", ((struct Faculty *)user)->faculty_id);
     }
 
     int response = sendToServer(command);
@@ -110,6 +114,7 @@ void addEntity(int role, int type)
             com.cmd_code = MODIFY_FACULTY;
             com.role = ADMIN;
             com.whereData = FACULTY;
+            com.faculty.modifyCourse = 1;
 
             int res = sendToServer(com);
             if (res == SUCCESS)
@@ -304,6 +309,7 @@ void modifyEntity(int role, int type)
         PRINT("Enter new student password: ");
         scanf("%s", command.student.password);
         command.student.isEXISTS = 1;
+        command.student.modifyCourse = 0;
     }
     else if (type == FACULTY)
     {
@@ -316,6 +322,7 @@ void modifyEntity(int role, int type)
         PRINT("Enter new department: ");
         scanf("%s", command.faculty.department);
         command.faculty.isEXISTS = 1;
+        command.faculty.modifyCourse = 0;
     }
     else if (type == COURSE)
     {
@@ -358,7 +365,13 @@ void logout()
     command.whereData = NO_USER;
 
     int response = sendToServer(command);
-    PRINT("Logged out successfully.\n");
+    if (response == NOT_LOGGED_IN)
+    {
+        PRINT("\n\n----------------------------------------------\n");
+        PRINT("\n Exiting...\n");
+    }
+    else
+        PRINT("Logged out successfully.\n");
     PRINT("\n----------------------------------------------\n");
 
     close(sockfd);
@@ -631,6 +644,11 @@ void showFacultyCommands()
 
 void enrollCourse()
 {
+    if (((struct Student *)user)->course_count >= MAX_SIZE)
+    {
+        PRINT("Cannot enrol for more courses.");
+        return;
+    }
     struct Command command;
     command.cmd_code = ENROLL_COURSE;
     command.role = STUDENT;
@@ -650,6 +668,7 @@ void enrollCourse()
     strcpy(command.student.course_list[command.student.course_count],
            command.course.course_code);
     command.student.course_count++;
+    command.student.modifyCourse = 1;
 
     int response = sendToServer(command);
     if (response == SUCCESS)
@@ -677,6 +696,7 @@ void dropCourse()
     PRINT("Enter course code: ");
     scanf("%s", command.course.course_code);
     command.student = *((struct Student *)user);
+    command.student.modifyCourse = 1;
     int isstudentenrolled = 0;
     for (int i = 0; i < command.student.course_count; i++)
     {
@@ -760,26 +780,17 @@ void showStudentCommands()
     }
 }
 
-void handleSignals(int sig)
-{
-    PRINT("\nExiting...\n");
-    PRINT("\n----------------------------------------------\n");
-    free(user);
-    close(sockfd);
-    exit(0);
-}
-
 int main()
 {
-    signal(SIGINT, handleSignals);  // Interrupt from keyboard
-    signal(SIGTERM, handleSignals); // Termination signal
-    signal(SIGQUIT, handleSignals); // Quit signal
-    signal(SIGSEGV, handleSignals); // Segmentation fault
-    signal(SIGABRT, handleSignals); // Abnormal termination
-    signal(SIGILL, handleSignals);  // Illegal instruction
-    signal(SIGFPE, handleSignals);  // Floating-point exception
-    signal(SIGBUS, handleSignals);  // Bus error
-    signal(SIGPIPE, SIG_IGN);       // Ignore broken pipe
+    signal(SIGINT, logout);   // Interrupt from keyboard
+    signal(SIGTERM, logout);  // Termination signal
+    signal(SIGQUIT, logout);  // Quit signal
+    signal(SIGSEGV, logout);  // Segmentation fault
+    signal(SIGABRT, logout);  // Abnormal termination
+    signal(SIGILL, logout);   // Illegal instruction
+    signal(SIGFPE, logout);   // Floating-point exception
+    signal(SIGBUS, logout);   // Bus error
+    signal(SIGPIPE, SIG_IGN); // Ignore broken pipe
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
     {
