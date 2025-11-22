@@ -6,6 +6,7 @@ A file-based storage system maintains all user and course data, while a serverâ€
 To ensure data consistency during course enrolment and modification, mutex locks protect critical sections and prevent race conditions.
 
 Overall, the project demonstrates how OS principles can be combined to build a robust, concurrent, and secure academic management portal.
+
 This project was done as part of a course EGC - 301 Operating Systems in IIITB. 
 
 # Directory Structure
