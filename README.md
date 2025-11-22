@@ -2,10 +2,11 @@
 This project is a multi-client course registration system built entirely in C, designed using several core Operating Systems concepts such as process management, file handling, socket programming, multithreading, and synchronization.
 
 The system supports role-based access for Admin, Faculty, and Students, enabling secure login and controlled operations.
-A file-based storage system maintains all user and course data, while a server–client architecture handles multiple users concurrently through threads (pthreads) and maintains synchronization using mutexes.
+A file-based storage system maintains all user and course data, while a server–client architecture handles multiple users concurrently through threads (pthreads).
 To ensure data consistency during course enrolment and modification, mutex locks protect critical sections and prevent race conditions.
 
-Overall, the project demonstrates how OS principles can be combined to build a robust, concurrent, and secure academic management portal.This project was done as part of a course EGC - 301 Operating Systems in IIITB. 
+Overall, the project demonstrates how OS principles can be combined to build a robust, concurrent, and secure academic management portal.
+This project was done as part of a course EGC - 301 Operating Systems in IIITB. 
 
 # Directory Structure
 ```
